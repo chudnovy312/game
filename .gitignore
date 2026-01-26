@@ -1,0 +1,33 @@
+# Godot-specific ignores
+.import/
+export.cfg
+export_presets.cfg
+*.uid
+
+# Godot 4+ specific
+.godot/
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build files
+*.exe
+*.pck
+*.zip
+*.app
+
+# Logs
+*.log

@@ -1,0 +1,21 @@
+[gd_scene load_steps=4 format=3 uid="uid://lightning123"]
+
+[ext_resource type="Script" path="res://Player/Attack/lightning_bolt.gd" id="1_lightning"]
+[ext_resource type="Texture2D" uid="uid://jjt1rh5e2jcp" path="res://Textures/Items/Weapons/ice_spear.png" id="2_texture"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lightning"]
+size = Vector2(10, 30)
+
+[node name="LightningBolt" type="Area2D" groups=["attack"]]
+top_level = true
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_lightning")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(1, 1, 0.2, 1)
+texture = ExtResource("2_texture")
+scale = Vector2(0.5, 1.5)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_lightning")
