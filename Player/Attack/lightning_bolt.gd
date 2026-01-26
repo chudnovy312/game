@@ -16,7 +16,7 @@ var chain_index = 0
 @onready var player = get_tree().get_first_node_in_group("player")
 @onready var sprite = $Sprite2D
 
-# signal remove_from_array(object)  # Не используется, закомментировано
+signal remove_from_array(object)
 
 func _ready():
 	add_to_group("attack")
