@@ -18,7 +18,7 @@ var hit_enemies = []  # Список уже пораженных врагов
 @onready var player = get_tree().get_first_node_in_group("player")
 @onready var sprite = $Sprite2D
 
-signal remove_from_array(object)
+# signal remove_from_array(object)  # Не используется, закомментировано
 
 func _ready():
 	add_to_group("attack")
@@ -97,13 +97,14 @@ func _physics_process(delta):
 		# Летим к цели
 		if target != Vector2.ZERO:
 			var distance_to_target = global_position.distance_to(target)
-		if distance_to_target < 10.0 or distance_from_start >= max_distance:
-			# Достигли цели или максимальной дистанции - возвращаемся
-			is_returning = true
+			if distance_to_target < 10.0 or distance_from_start >= max_distance:
+				# Достигли цели или максимальной дистанции - возвращаемся
+				is_returning = true
+			else:
+				global_position += angle * speed * delta
+				rotation += delta * 15.0  # Быстрое вращение для сюрикена
 		else:
-			global_position += angle * speed * delta
-			rotation += delta * 15.0  # Быстрое вращение для сюрикена
-		else:
+			# Если цели нет, возвращаемся
 			is_returning = true
 	else:
 		# Возвращаемся к игроку

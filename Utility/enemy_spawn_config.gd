@@ -54,7 +54,7 @@ static func get_enemies_for_level(player_level: int) -> Array:
 		else:
 			enemy_levels = [5, 6, 7]
 			# На очень высоких уровнях добавляем больше супер-врагов
-			for i in range(min(2, (player_level - 30) / 5)):
+			for i in range(min(2, int((player_level - 30) / 5))):
 				enemy_levels.append(5)
 	
 	# Ограничиваем реальными типами врагов (1-7)
