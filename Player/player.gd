@@ -1,27 +1,32 @@
 extends CharacterBody2D
 
 
-var movement_speed = 52.0  # 40.0 * 1.3
+var base_movement_speed = 52.0  # Базовая скорость (увеличено на 30% от 40.0)
+var movement_speed = 52.0  # Текущая скорость с модификаторами
+var speed_modifier = 0.0  # Модификатор скорости (в процентах)
 var hp = 80
 var maxhp = 80
 var last_movement = Vector2.UP
 var time = 0
 
+# Dash система
+var dash_speed: float = 200.0  # Скорость рывка
+var dash_duration: float = 0.15  # Длительность рывка
+var dash_cooldown: float = 1.5  # Перезарядка рывка (1.5 секунды)
+var dash_cooldown_timer: float = 0.0
+var is_dashing: bool = false
+var dash_timer: float = 0.0
+var dash_direction: Vector2 = Vector2.ZERO
+var dash_invincibility: bool = true  # Неуязвимость во время рывка
+
 var experience = 0
 var experience_level = 1
 var collected_experience = 0
-
-#Inventory
-var keys_count = 0
 
 #Attacks
 var iceSpear = preload("res://Player/Attack/ice_spear.tscn")
 var tornado = preload("res://Player/Attack/tornado.tscn")
 var javelin = preload("res://Player/Attack/javelin.tscn")
-var rotatingSword = preload("res://Player/Attack/rotating_sword.tscn")
-var fireball = preload("res://Player/Attack/fireball.tscn")
-var lightningBolt = preload("res://Player/Attack/lightning_bolt.tscn")
-var shuriken = preload("res://Player/Attack/shuriken.tscn")
 
 #AttackNodes
 @onready var iceSpearTimer = get_node("%IceSpearTimer")
@@ -29,8 +34,6 @@ var shuriken = preload("res://Player/Attack/shuriken.tscn")
 @onready var tornadoTimer = get_node("%TornadoTimer")
 @onready var tornadoAttackTimer = get_node("%TornadoAttackTimer")
 @onready var javelinBase = get_node("%JavelinBase")
-@onready var grabArea = get_node("GrabArea")
-@onready var collectArea = get_node("CollectArea")
 
 #UPGRADES
 var collected_upgrades = []
@@ -40,45 +43,22 @@ var speed = 0
 var spell_cooldown = 0
 var spell_size = 0
 var additional_attacks = 0
-var loot_radius_multiplier = 1.0  # Множитель радиуса сбора
 
 #IceSpear
 var icespear_ammo = 0
 var icespear_baseammo = 0
-var icespear_attackspeed = 1.15  # 1.5 * 0.77 (быстрее = меньше время)
+var icespear_attackspeed = 1.5
 var icespear_level = 0
 
 #Tornado
 var tornado_ammo = 0
 var tornado_baseammo = 0
-var tornado_attackspeed = 2.31  # 3 * 0.77 (быстрее = меньше время)
+var tornado_attackspeed = 3
 var tornado_level = 0
 
 #Javelin
 var javelin_ammo = 0
 var javelin_level = 0
-
-#Rotating Sword
-var rotating_sword_level = 0
-var rotating_sword_base = null
-
-#Fireball
-var fireball_ammo = 0
-var fireball_baseammo = 0
-var fireball_attackspeed = 2.0
-var fireball_level = 0
-
-#Lightning Bolt
-var lightning_ammo = 0
-var lightning_baseammo = 0
-var lightning_attackspeed = 3.0
-var lightning_level = 0
-
-#Shuriken
-var shuriken_ammo = 0
-var shuriken_baseammo = 0
-var shuriken_attackspeed = 2.5
-var shuriken_level = 0
 
 
 #Enemy Related
@@ -100,8 +80,6 @@ var enemy_close = []
 @onready var collectedWeapons = get_node("%CollectedWeapons")
 @onready var collectedUpgrades = get_node("%CollectedUpgrades")
 @onready var itemContainer = preload("res://Player/GUI/item_container.tscn")
-@onready var lblKeys = get_node_or_null("%lblKeys")
-@onready var lblWallet = get_node_or_null("%lblWallet")
 
 @onready var deathPanel = get_node("%DeathPanel")
 @onready var lblResult = get_node("%lbl_Result")
@@ -110,24 +88,48 @@ var enemy_close = []
 
 #Signal
 signal playerdeath
-signal level_changed(new_level)
 
 func _ready():
-	var start_upgrade = "icespear1"
-	if get_tree().has_meta("start_upgrade"):
-		start_upgrade = str(get_tree().get_meta("start_upgrade"))
-	upgrade_character(start_upgrade)
+	update_movement_speed()
+	upgrade_character("icespear1")
 	attack()
 	set_expbar(experience, calculate_experiencecap())
-	_on_hurt_box_hurt(0,0,0)
-	update_hud_keys()
-	update_loot_radius()
-	update_wallet_display()
+	_on_hurt_box_hurt(0,0,0,false)
+
+func update_movement_speed():
+	movement_speed = base_movement_speed * (1.0 + speed_modifier)
+
+func update_all_enemies_speed():
+	# Обновляем скорость всех существующих врагов
+	var enemies = get_tree().get_nodes_in_group("enemy")
+	for enemy in enemies:
+		if enemy.has_method("update_speed_from_modifier"):
+			enemy.update_speed_from_modifier()
 
 func _physics_process(delta):
+	# Обновляем таймеры
+	if dash_cooldown_timer > 0:
+		dash_cooldown_timer -= delta
+	
+	if is_dashing:
+		dash_timer -= delta
+		if dash_timer <= 0:
+			is_dashing = false
+			dash_invincibility = false
+	
 	movement()
 
 func movement():
+	# Проверка на рывок
+	if Input.is_action_just_pressed("dash") and dash_cooldown_timer <= 0 and not is_dashing:
+		start_dash()
+	
+	# Если рывок активен, используем скорость рывка
+	if is_dashing:
+		velocity = dash_direction * dash_speed
+		move_and_slide()
+		return
+	
 	var x_mov = Input.get_action_strength("right") - Input.get_action_strength("left")
 	var y_mov = Input.get_action_strength("down") - Input.get_action_strength("up")
 	var mov = Vector2(x_mov,y_mov)
@@ -148,6 +150,23 @@ func movement():
 	velocity = mov.normalized()*movement_speed
 	move_and_slide()
 
+func start_dash():
+	# Определяем направление рывка
+	var x_mov = Input.get_action_strength("right") - Input.get_action_strength("left")
+	var y_mov = Input.get_action_strength("down") - Input.get_action_strength("up")
+	var mov = Vector2(x_mov, y_mov)
+	
+	# Если нет движения, рывок в последнем направлении
+	if mov == Vector2.ZERO:
+		dash_direction = last_movement.normalized()
+	else:
+		dash_direction = mov.normalized()
+	
+	is_dashing = true
+	dash_timer = dash_duration
+	dash_cooldown_timer = dash_cooldown
+	dash_invincibility = true
+
 func attack():
 	if icespear_level > 0:
 		iceSpearTimer.wait_time = icespear_attackspeed * (1-spell_cooldown)
@@ -159,21 +178,44 @@ func attack():
 			tornadoTimer.start()
 	if javelin_level > 0:
 		spawn_javelin()
-	if rotating_sword_level > 0:
-		spawn_rotating_sword()
-	if fireball_level > 0:
-		spawn_fireball_timer()
-	if lightning_level > 0:
-		spawn_lightning_timer()
-	if shuriken_level > 0:
-		spawn_shuriken_timer()
 
-func _on_hurt_box_hurt(damage, _angle, _knockback):
+func _on_hurt_box_hurt(damage, _angle, _knockback, _is_critical = false):
+	# Неуязвимость во время рывка
+	if is_dashing and dash_invincibility:
+		return
+	
 	hp -= clamp(damage-armor, 1.0, 999.0)
 	healthBar.max_value = maxhp
 	healthBar.value = hp
+	
+	# Визуальная индикация урона
+	show_damage_effect()
+	
 	if hp <= 0:
 		death()
+
+func show_damage_effect():
+	# Мигание спрайта
+	var tween = create_tween()
+	tween.set_loops(3)
+	tween.tween_property(sprite, "modulate", Color(1.0, 0.3, 0.3, 1.0), 0.05)
+	tween.tween_property(sprite, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.05)
+	
+	# Красный флэш экрана - создаем временный красный оверлей
+	var red_flash = ColorRect.new()
+	red_flash.color = Color(1.0, 0.0, 0.0, 0.3)
+	red_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	red_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Добавляем к корню сцены, чтобы покрыть весь экран (используем call_deferred)
+	var scene_root = get_tree().current_scene
+	if scene_root:
+		scene_root.call_deferred("add_child", red_flash)
+		# Создаем твин после добавления узла
+		await get_tree().process_frame
+		if is_instance_valid(red_flash) and red_flash.get_parent():
+			var flash_tween = red_flash.create_tween()
+			flash_tween.tween_property(red_flash, "color:a", 0.0, 0.2)
+			flash_tween.tween_callback(red_flash.queue_free)
 
 func _on_ice_spear_timer_timeout():
 	icespear_ammo += icespear_baseammo + additional_attacks
@@ -224,121 +266,6 @@ func spawn_javelin():
 		if i.has_method("update_javelin"):
 			i.update_javelin()
 
-func spawn_rotating_sword():
-	if rotating_sword_base == null:
-		rotating_sword_base = Node2D.new()
-		rotating_sword_base.name = "RotatingSwordBase"
-		get_node("Attack").add_child(rotating_sword_base)
-	
-	var sword_count = rotating_sword_base.get_child_count()
-	var target_count = rotating_sword_level  # Количество мечей = уровень
-	
-	# Удаляем лишние мечи
-	while sword_count > target_count:
-		var sword = rotating_sword_base.get_child(0)
-		sword.queue_free()
-		sword_count -= 1
-	
-	# Добавляем недостающие мечи
-	while sword_count < target_count:
-		var sword = rotatingSword.instantiate()
-		sword.level = rotating_sword_level
-		# Распределяем мечи равномерно по окружности
-		sword.start_angle = (sword_count * TAU) / target_count
-		rotating_sword_base.add_child(sword)
-		sword_count += 1
-	
-	# Обновляем все мечи
-	for sword in rotating_sword_base.get_children():
-		if sword.has_method("update_sword"):
-			sword.update_sword()
-
-func spawn_fireball_timer():
-	# Создаём таймер для огненных шаров, если его нет
-	if not has_node("Attack/FireballTimer"):
-		var timer = Timer.new()
-		timer.name = "FireballTimer"
-		timer.wait_time = fireball_attackspeed * (1-spell_cooldown)
-		timer.timeout.connect(_on_fireball_timer_timeout)
-		get_node("Attack").add_child(timer)
-		timer.start()
-	else:
-		var timer = get_node("Attack/FireballTimer")
-		timer.wait_time = fireball_attackspeed * (1-spell_cooldown)
-		if timer.is_stopped():
-			timer.start()
-
-func _on_fireball_timer_timeout():
-	fireball_ammo += fireball_baseammo + additional_attacks
-	# Спавним все огненные шары сразу
-	while fireball_ammo > 0:
-		spawn_fireball()
-
-func spawn_fireball():
-	if fireball_ammo > 0:
-		var fireball_attack = fireball.instantiate()
-		fireball_attack.global_position = global_position
-		fireball_attack.target = get_random_target()
-		fireball_attack.level = fireball_level
-		get_parent().add_child(fireball_attack)  # Добавляем в World, а не в Player
-		fireball_ammo -= 1
-
-func spawn_lightning_timer():
-	if not has_node("Attack/LightningTimer"):
-		var timer = Timer.new()
-		timer.name = "LightningTimer"
-		timer.wait_time = lightning_attackspeed * (1-spell_cooldown)
-		timer.timeout.connect(_on_lightning_timer_timeout)
-		get_node("Attack").add_child(timer)
-		timer.start()
-	else:
-		var timer = get_node("Attack/LightningTimer")
-		timer.wait_time = lightning_attackspeed * (1-spell_cooldown)
-		if timer.is_stopped():
-			timer.start()
-
-func _on_lightning_timer_timeout():
-	lightning_ammo += lightning_baseammo + additional_attacks
-	while lightning_ammo > 0:
-		spawn_lightning()
-		lightning_ammo -= 1
-
-func spawn_lightning():
-	if lightning_ammo > 0:
-		var lightning_attack = lightningBolt.instantiate()
-		lightning_attack.global_position = global_position
-		lightning_attack.level = lightning_level
-		get_parent().add_child(lightning_attack)
-		lightning_ammo -= 1
-
-func spawn_shuriken_timer():
-	if not has_node("Attack/ShurikenTimer"):
-		var timer = Timer.new()
-		timer.name = "ShurikenTimer"
-		timer.wait_time = shuriken_attackspeed * (1-spell_cooldown)
-		timer.timeout.connect(_on_shuriken_timer_timeout)
-		get_node("Attack").add_child(timer)
-		timer.start()
-	else:
-		var timer = get_node("Attack/ShurikenTimer")
-		timer.wait_time = shuriken_attackspeed * (1-spell_cooldown)
-		if timer.is_stopped():
-			timer.start()
-
-func _on_shuriken_timer_timeout():
-	shuriken_ammo += shuriken_baseammo + additional_attacks
-	while shuriken_ammo > 0:
-		spawn_shuriken()
-		shuriken_ammo -= 1
-
-func spawn_shuriken():
-	if shuriken_ammo > 0:
-		var shuriken_attack = shuriken.instantiate()
-		shuriken_attack.global_position = global_position
-		shuriken_attack.level = shuriken_level
-		get_parent().add_child(shuriken_attack)
-		shuriken_ammo -= 1
-
 func get_random_target():
 	if enemy_close.size() > 0:
 		return enemy_close.pick_random().global_position
@@ -357,19 +284,24 @@ func _on_enemy_detection_area_body_exited(body):
 
 func _on_grab_area_area_entered(area):
 	if area.is_in_group("loot"):
-		area.target = self
+		# Устанавливаем target для всех объектов лута
+		# experience_gem и healing_potion имеют свойство target
+		# Используем set() для безопасной установки свойства
+		area.set("target", self)
 
 func _on_collect_area_area_entered(area):
 	if area.is_in_group("loot"):
 		if area.has_method("collect"):
 			var result = area.collect()
-			# Проверяем тип объекта: ключ возвращает 1, гем опыта возвращает число опыта
-			# Проверяем, является ли объект ключом (проверяем имя или скрипт)
-			if area.name.contains("Key") or (area.get_script() != null and "key_item" in str(area.get_script().get_path())):
-				keys_count += result
-				update_hud_keys()
-			else:
+			if result is int:
+				# Это опыт (целое число)
 				calculate_experience(result)
+			elif result is float:
+				# Проверяем, это опыт или процент лечения
+				if result > 0 and result < 1000:  # Опыт обычно небольшой
+					calculate_experience(int(result))
+				elif result > 0 and result <= 1.0:  # Процент лечения
+					heal(result)
 
 func calculate_experience(gem_exp):
 	var exp_required = calculate_experiencecap()
@@ -379,7 +311,6 @@ func calculate_experience(gem_exp):
 		experience_level += 1
 		experience = 0
 		exp_required = calculate_experiencecap()
-		emit_signal("level_changed", experience_level)
 		levelup()
 	else:
 		experience += collected_experience
@@ -389,21 +320,12 @@ func calculate_experience(gem_exp):
 
 func calculate_experiencecap():
 	var exp_cap = experience_level
-	if experience_level < 10:
-		# Уровни 1-9: более плавная прогрессия
-		exp_cap = experience_level * 8  # 8, 16, 24, 32... 72 опыта
-	elif experience_level < 20:
-		# Уровни 10-19: увеличиваем требования
-		exp_cap = 72 + (experience_level - 9) * 12  # 84, 96, 108... 192 опыта
-	elif experience_level < 30:
-		# Уровни 20-29: еще больше требований
-		exp_cap = 192 + (experience_level - 19) * 18  # 210, 228... 378 опыта
-	elif experience_level < 50:
-		# Уровни 30-49: значительное увеличение
-		exp_cap = 378 + (experience_level - 29) * 25  # 403, 428... 878 опыта
+	if experience_level < 20:
+		exp_cap = experience_level*5
+	elif experience_level < 40:
+		exp_cap + 95 * (experience_level-19)*8
 	else:
-		# Уровни 50+: очень высокие требования
-		exp_cap = 878 + (experience_level - 49) * 35  # 913, 948... и так далее
+		exp_cap = 255 + (experience_level-39)*12
 		
 	return exp_cap
 		
@@ -464,7 +386,10 @@ func upgrade_character(upgrade):
 		"armor1","armor2","armor3","armor4":
 			armor += 1
 		"speed1","speed2","speed3","speed4":
-			movement_speed += 26.0  # 20.0 * 1.3
+			speed_modifier += 0.20  # Игрок получает +20% скорости за каждый уровень
+			PlayerData.enemy_speed_modifier += 0.10  # Враги получают +10% скорости за каждый уровень
+			update_movement_speed()
+			update_all_enemies_speed()
 		"tome1","tome2","tome3","tome4":
 			spell_size += 0.10
 		"scroll1","scroll2","scroll3","scroll4":
@@ -474,53 +399,6 @@ func upgrade_character(upgrade):
 		"food":
 			hp += 20
 			hp = clamp(hp,0,maxhp)
-		"speedboost1":
-			var base_speed = 52.0  # Базовая скорость после увеличения на 30%
-			movement_speed += base_speed * 0.2  # +20% от базовой скорости
-		"rotatingsword1":
-			rotating_sword_level = 1
-		"rotatingsword2":
-			rotating_sword_level = 2
-		"rotatingsword3":
-			rotating_sword_level = 3
-		"rotatingsword4":
-			rotating_sword_level = 4
-		"fireball1":
-			fireball_level = 1
-			fireball_baseammo += 1
-		"fireball2":
-			fireball_level = 2
-			fireball_baseammo += 1
-		"fireball3":
-			fireball_level = 3
-		"fireball4":
-			fireball_level = 4
-			fireball_baseammo += 2
-		"lightning1":
-			lightning_level = 1
-			lightning_baseammo += 1
-		"lightning2":
-			lightning_level = 2
-			lightning_baseammo += 1
-		"lightning3":
-			lightning_level = 3
-		"lightning4":
-			lightning_level = 4
-			lightning_baseammo += 1
-		"shuriken1":
-			shuriken_level = 1
-			shuriken_baseammo += 1
-		"shuriken2":
-			shuriken_level = 2
-			shuriken_baseammo += 1
-		"shuriken3":
-			shuriken_level = 3
-		"shuriken4":
-			shuriken_level = 4
-			shuriken_baseammo += 1
-		"lootradius1":
-			loot_radius_multiplier += 0.2  # +20% радиуса сбора
-			update_loot_radius()  # Обновляем радиус сразу
 	adjust_gui_collection(upgrade)
 	attack()
 	var option_children = upgradeOptions.get_children()
@@ -568,41 +446,6 @@ func change_time(argtime = 0):
 		get_s = str(0,get_s)
 	lblTimer.text = str(get_m,":",get_s)
 
-func update_hud_keys():
-	if lblKeys:
-		lblKeys.text = "Keys: " + str(keys_count)
-
-func update_loot_radius():
-	# Обновляем радиус сбора лута
-	if grabArea and collectArea:
-		var base_radius_grab = 50.0
-		var base_radius_collect = 20.0
-		
-		# Обновляем размер коллизий
-		var grab_shape = grabArea.get_node_or_null("CollisionShape2D")
-		var collect_shape = collectArea.get_node_or_null("CollisionShape2D")
-		
-		if grab_shape and grab_shape.shape:
-			if grab_shape.shape is CircleShape2D:
-				grab_shape.shape.radius = base_radius_grab * loot_radius_multiplier
-		
-		if collect_shape and collect_shape.shape:
-			if collect_shape.shape is CircleShape2D:
-				collect_shape.shape.radius = base_radius_collect * loot_radius_multiplier
-
-func update_wallet_display():
-	if lblWallet:
-		var wallet_address = ""
-		if get_tree().has_meta("wallet_address"):
-			wallet_address = str(get_tree().get_meta("wallet_address"))
-		
-		if wallet_address != "" and wallet_address.length() > 10:
-			# Показываем сокращённый адрес
-			var short_address = wallet_address.substr(0, 6) + "..." + wallet_address.substr(wallet_address.length() - 4)
-			lblWallet.text = "Wallet: " + short_address
-		else:
-			lblWallet.text = "Wallet: Not Connected"
-
 func adjust_gui_collection(upgrade):
 	var get_upgraded_displayname = UpgradeDb.UPGRADES[upgrade]["displayname"]
 	var get_type = UpgradeDb.UPGRADES[upgrade]["type"]
@@ -634,6 +477,11 @@ func death():
 		sndLose.play()
 
 
+func heal(percentage: float):
+	var heal_amount = maxhp * percentage
+	hp = clamp(hp + heal_amount, 0, maxhp)
+	healthBar.value = hp
+
 func _on_btn_menu_click_end():
 	get_tree().paused = false
-	var _level = get_tree().change_scene_to_file("res://TitleScreen/menu.tscn")
+	var _level = get_tree().change_scene_to_file("res://TitleScreen/MainMenu.tscn")

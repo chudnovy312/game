@@ -222,32 +222,6 @@ text = "00:00"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="lblKeys" type="Label" parent="GUILayer/GUI"]
-unique_name_in_owner = true
-layout_mode = 0
-offset_left = 10.0
-offset_top = 60.0
-offset_right = 150.0
-offset_bottom = 80.0
-theme_override_fonts/font = ExtResource("6_okx7u")
-theme_override_font_sizes/font_size = 16
-text = "Keys: 0"
-horizontal_alignment = 0
-vertical_alignment = 1
-
-[node name="lblWallet" type="Label" parent="GUILayer/GUI"]
-unique_name_in_owner = true
-layout_mode = 0
-offset_left = 10.0
-offset_top = 80.0
-offset_right = 400.0
-offset_bottom = 100.0
-theme_override_fonts/font = ExtResource("6_okx7u")
-theme_override_font_sizes/font_size = 12
-text = "Wallet: Not Connected"
-horizontal_alignment = 0
-vertical_alignment = 1
-
 [node name="CollectedWeapons" type="GridContainer" parent="GUILayer/GUI"]
 unique_name_in_owner = true
 layout_mode = 0

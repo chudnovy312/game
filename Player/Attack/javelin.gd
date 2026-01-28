@@ -2,12 +2,17 @@ extends Area2D
 
 var level = 1
 var hp = 9999
-var speed = 260.0  # 200.0 * 1.3
+var speed = 200.0
+var min_damage = 9
+var max_damage = 11
 var damage = 10
 var knockback_amount = 100
 var paths = 1
 var attack_size = 1.0
 var attack_speed = 5.0
+@export var crit_chance: float = 0.10  # 10% шанс крита
+@export var crit_multiplier: float = 2.0  # x2 урон при крите
+var is_critical: bool = false
 
 var target = Vector2.ZERO
 var target_array = []
@@ -37,7 +42,9 @@ func update_javelin():
 	match level:
 		1:
 			hp = 9999
-			speed = 260.0  # 200.0 * 1.3
+			speed = 260.0  # Увеличено на 30%
+			min_damage = 9
+			max_damage = 11
 			damage = 10
 			knockback_amount = 100
 			paths = 1
@@ -45,7 +52,9 @@ func update_javelin():
 			attack_speed = 5.0 * (1-player.spell_cooldown)
 		2:
 			hp = 9999
-			speed = 260.0  # 200.0 * 1.3
+			speed = 260.0  # Увеличено на 30%
+			min_damage = 9
+			max_damage = 11
 			damage = 10
 			knockback_amount = 100
 			paths = 2
@@ -53,7 +62,9 @@ func update_javelin():
 			attack_speed = 5.0 * (1-player.spell_cooldown)
 		3:
 			hp = 9999
-			speed = 260.0  # 200.0 * 1.3
+			speed = 260.0  # Увеличено на 30%
+			min_damage = 9
+			max_damage = 11
 			damage = 10
 			knockback_amount = 100
 			paths = 3
@@ -61,12 +72,17 @@ func update_javelin():
 			attack_speed = 5.0 * (1-player.spell_cooldown)
 		4:
 			hp = 9999
-			speed = 260.0  # 200.0 * 1.3
+			speed = 260.0  # Увеличено на 30%
+			min_damage = 14
+			max_damage = 16
 			damage = 15
 			knockback_amount = 120
 			paths = 3
 			attack_size = 1.0 * (1 + player.spell_size)
 			attack_speed = 5.0 * (1-player.spell_cooldown)
+	
+	# Вычисляем случайный урон и проверяем крит при каждой атаке
+	calculate_damage()
 			
 	
 	scale = Vector2(1.0,1.0) * attack_size
@@ -78,13 +94,22 @@ func _physics_process(delta):
 	else:
 		var player_angle = global_position.direction_to(reset_pos)
 		var distance_dif = global_position - player.global_position
-		var return_speed = 26  # 20 * 1.3
+		var return_speed = 20
 		if abs(distance_dif.x) > 500 or abs(distance_dif.y) > 500:
-			return_speed = 130  # 100 * 1.3
+			return_speed = 100
 		position += player_angle*return_speed*delta
 		rotation = global_position.direction_to(player.global_position).angle() + deg_to_rad(135)
 
+func calculate_damage():
+	# Случайный урон в диапазоне
+	damage = randi_range(min_damage, max_damage)
+	# Проверка на критический удар
+	is_critical = randf() < crit_chance
+	if is_critical:
+		damage = int(damage * crit_multiplier)
+
 func add_paths():
+	calculate_damage()  # Пересчитываем урон для каждой атаки
 	snd_attack.play()
 	emit_signal("remove_from_array",self)
 	target_array.clear()

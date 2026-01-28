@@ -1,7 +1,8 @@
 extends CharacterBody2D
 
 
-@export var movement_speed = 26.0  # 20.0 * 1.3
+@export var base_movement_speed = 26.0  # Базовая скорость (увеличено на 30% от 20.0)
+@export var movement_speed = 26.0  # Текущая скорость с модификаторами
 @export var hp = 10
 @export var knockback_recovery = 3.5
 @export var experience = 1
@@ -17,22 +18,34 @@ var knockback = Vector2.ZERO
 
 var death_anim = preload("res://Enemy/explosion.tscn")
 var exp_gem = preload("res://Objects/experience_gem.tscn")
+var healing_potion = preload("res://Objects/healing_potion.tscn")
+var health_bar_scene = preload("res://Enemy/enemy_health_bar.tscn")
+var damage_number_scene = preload("res://Utility/damage_number.tscn")
+
+@export var healing_potion_drop_chance: float = 0.05  # 5% шанс выпадения зелья лечения
+
+var max_hp: float = 10.0
+var health_bar = null
 
 signal remove_from_array(object)
 
 
 func _ready():
-	add_to_group("enemy")  # Добавляем в группу для поиска
+	base_movement_speed = movement_speed  # Сохраняем базовую скорость
+	max_hp = hp  # Сохраняем максимальное HP
+	update_speed_from_modifier()
 	anim.play("walk")
 	hitBox.damage = enemy_damage
+	# Создаем HP бар
+	health_bar = health_bar_scene.instantiate()
+	add_child(health_bar)
+	update_health_bar()
+
+func update_speed_from_modifier():
+	movement_speed = base_movement_speed * (1.0 + PlayerData.enemy_speed_modifier)
 
 func _physics_process(_delta):
-	# Убеждаемся, что knockback всегда Vector2
-	if knockback is Vector2:
-		knockback = knockback.move_toward(Vector2.ZERO, knockback_recovery)
-	else:
-		knockback = Vector2.ZERO
-	
+	knockback = knockback.move_toward(Vector2.ZERO, knockback_recovery)
 	var direction = global_position.direction_to(player.global_position)
 	velocity = direction*movement_speed
 	velocity += knockback
@@ -51,40 +64,41 @@ func death():
 	get_parent().call_deferred("add_child",enemy_death)
 	var new_gem = exp_gem.instantiate()
 	new_gem.global_position = global_position
-	# Уменьшаем опыт от врагов для более плавной прогрессии
-	# Базовый опыт остается, но можно добавить масштабирование по уровню игрока
-	var exp_given = experience
-	if player:
-		# На высоких уровнях опыт немного уменьшается (но не слишком сильно)
-		var level_penalty = max(0.7, 1.0 - (player.experience_level - 20) * 0.01)
-		exp_given = int(experience * level_penalty)
-	new_gem.experience = exp_given
+	new_gem.experience = experience
 	loot_base.call_deferred("add_child",new_gem)
+	
+	# Шанс выпадения зелья лечения
+	if randf() < healing_potion_drop_chance:
+		var new_potion = healing_potion.instantiate()
+		new_potion.global_position = global_position
+		loot_base.call_deferred("add_child",new_potion)
+	
+	# Удаляем HP бар
+	if health_bar != null:
+		health_bar.queue_free()
+	
 	queue_free()
 
-func _on_hurt_box_hurt(damage, angle, knockback_amount):
-	# Показываем урон
-	var damage_pos = global_position
-	if sprite:
-		# Получаем размер спрайта для правильного позиционирования
-		var sprite_rect = sprite.get_rect()
-		damage_pos.y -= sprite_rect.size.y * sprite.scale.y / 2  # Немного выше центра спрайта
-	
-	# Определяем тип урона (можно расширить позже)
-	var damage_type = "normal"
-	
-	# Показываем цифру урона
-	if DamageNumberManager:
-		DamageNumberManager.show_damage(damage, damage_pos, false, damage_type)
-	
+func _on_hurt_box_hurt(damage, angle, knockback_amount, is_critical = false):
 	hp -= damage
-	# Убеждаемся, что angle это Vector2, иначе вычисляем направление от врага к атаке
-	if angle is Vector2 and angle.length() > 0:
-		knockback = angle * knockback_amount
-	else:
-		# Если направление не передано, используем направление от врага к игроку
-		knockback = global_position.direction_to(player.global_position) * knockback_amount
+	knockback = angle * knockback_amount
+	update_health_bar()
+	
+	# Создаем вылетающую цифру урона
+	spawn_damage_number(damage, is_critical)
+	
 	if hp <= 0:
 		death()
 	else:
 		snd_hit.play()
+
+func spawn_damage_number(damage_value: int, is_crit: bool = false):
+	var damage_num = damage_number_scene.instantiate()
+	damage_num.damage_value = damage_value
+	damage_num.is_critical = is_crit
+	damage_num.global_position = global_position + Vector2(0, -15)  # Немного выше врага
+	get_tree().current_scene.add_child(damage_num)
+
+func update_health_bar():
+	if health_bar != null:
+		health_bar.update_health(hp, max_hp)

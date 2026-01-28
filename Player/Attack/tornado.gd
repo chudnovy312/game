@@ -2,10 +2,15 @@ extends Area2D
 
 var level = 1
 var hp = 9999
-var speed = 130.0  # 100.0 * 1.3
+var speed = 100.0
+var min_damage = 4
+var max_damage = 6
 var damage = 5
 var attack_size = 1.0
 var knockback_amount = 100
+@export var crit_chance: float = 0.10  # 10% шанс крита
+@export var crit_multiplier: float = 2.0  # x2 урон при крите
+var is_critical: bool = false
 
 var last_movement = Vector2.ZERO
 var angle = Vector2.ZERO
@@ -20,28 +25,39 @@ func _ready():
 	match level:
 		1:
 			hp = 9999
-			speed = 130.0  # 100.0 * 1.3
+			speed = 130.0  # Увеличено на 30%
+			min_damage = 4
+			max_damage = 6
 			damage = 5
 			knockback_amount = 100
 			attack_size = 1.0 * (1 + player.spell_size)
 		2:
 			hp = 9999
-			speed = 130.0  # 100.0 * 1.3
+			speed = 130.0  # Увеличено на 30%
+			min_damage = 4
+			max_damage = 6
 			damage = 5
 			knockback_amount = 100
 			attack_size = 1.0 * (1 + player.spell_size)
 		3:
 			hp = 9999
-			speed = 130.0  # 100.0 * 1.3
+			speed = 130.0  # Увеличено на 30%
+			min_damage = 4
+			max_damage = 6
 			damage = 5
 			knockback_amount = 100
 			attack_size = 1.0 * (1 + player.spell_size)
 		4:
 			hp = 9999
-			speed = 130.0  # 100.0 * 1.3
+			speed = 130.0  # Увеличено на 30%
+			min_damage = 4
+			max_damage = 6
 			damage = 5
 			knockback_amount = 125
 			attack_size = 1.0 * (1 + player.spell_size)
+	
+	# Вычисляем случайный урон и проверяем крит
+	calculate_damage()
 
 			
 	var move_to_less = Vector2.ZERO
@@ -86,6 +102,14 @@ func _ready():
 		tween.tween_property(self,"angle", angle_less,2)
 		tween.tween_property(self,"angle", angle_more,2)
 	tween.play()
+
+func calculate_damage():
+	# Случайный урон в диапазоне
+	damage = randi_range(min_damage, max_damage)
+	# Проверка на критический удар
+	is_critical = randf() < crit_chance
+	if is_critical:
+		damage = int(damage * crit_multiplier)
 
 func _physics_process(delta):
 	position += angle*speed*delta

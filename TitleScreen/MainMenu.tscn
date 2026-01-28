@@ -1,0 +1,137 @@
+[gd_scene load_steps=4 format=3 uid="uid://b8c7gsdx2rkjm"]
+
+[ext_resource type="Script" path="res://TitleScreen/MainMenu.gd" id="1_mainmenu"]
+[ext_resource type="FontFile" uid="uid://cb4e8g30xxp5u" path="res://Font/tenderness.otf" id="2_font"]
+[ext_resource type="PackedScene" uid="uid://b7c7gsdx2rkjm" path="res://Utility/basic_button.tscn" id="3_button"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_mainmenu")
+
+[node name="ConnectWalletPanel" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ColorRect" type="ColorRect" parent="ConnectWalletPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.2, 0.2, 0.3, 1)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ConnectWalletPanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -50.0
+offset_right = 100.0
+offset_bottom = 50.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="ConnectWalletPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 48
+text = "Connect Wallet"
+horizontal_alignment = 1
+
+[node name="ConnectWalletButton" parent="ConnectWalletPanel/VBoxContainer" instance=ExtResource("3_button")]
+layout_mode = 2
+text = "Connect Wallet"
+
+[node name="MainMenuPanel" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+
+[node name="ColorRect" type="ColorRect" parent="MainMenuPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.572549, 0.207843, 0.168627, 1)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MainMenuPanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -200.0
+offset_right = 100.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="MainMenuPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 48
+text = "Main Menu"
+horizontal_alignment = 1
+
+[node name="StartGameButton" parent="MainMenuPanel/VBoxContainer" instance=ExtResource("3_button")]
+layout_mode = 2
+text = "Start Game"
+
+[node name="CastleButton" parent="MainMenuPanel/VBoxContainer" instance=ExtResource("3_button")]
+layout_mode = 2
+text = "Castle"
+
+[node name="MarketButton" parent="MainMenuPanel/VBoxContainer" instance=ExtResource("3_button")]
+layout_mode = 2
+text = "Market"
+
+[node name="ArenaButton" parent="MainMenuPanel/VBoxContainer" instance=ExtResource("3_button")]
+layout_mode = 2
+text = "Arena"
+
+[node name="TavernButton" parent="MainMenuPanel/VBoxContainer" instance=ExtResource("3_button")]
+layout_mode = 2
+text = "Tavern"
+
+[node name="LeaderboardButton" parent="MainMenuPanel/VBoxContainer" instance=ExtResource("3_button")]
+layout_mode = 2
+text = "Leaderboard"
+
+[node name="DisconnectButton" parent="MainMenuPanel/VBoxContainer" instance=ExtResource("3_button")]
+layout_mode = 2
+text = "Disconnect Wallet"
+
+[node name="WalletInfoLabel" type="Label" parent="MainMenuPanel"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -40.0
+offset_right = 300.0
+offset_bottom = -20.0
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 16
+text = "Not connected"

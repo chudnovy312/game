@@ -5,7 +5,7 @@ extends Area2D
 @onready var collision = $CollisionShape2D
 @onready var disableTimer = $DisableTimer
 
-signal hurt(damage, angle, knockback)
+signal hurt(damage, angle, knockback, is_critical)
 
 var hit_once_array = []
 
@@ -29,25 +29,16 @@ func _on_area_entered(area):
 						area.tempdisable()
 			var damage = area.damage
 			var angle = Vector2.ZERO
-			var knockback_amount = 1
-			
-			# Получаем направление удара
-			# Используем get() вместо has(), так как has() не работает для Area2D
-			if area.get("attack_angle") != null and area.attack_angle is Vector2:
-				angle = area.attack_angle
-			elif area.get("angle") != null and area.angle is Vector2:
+			var knockback = 1
+			var is_critical = false
+			if not area.get("angle") == null:
 				angle = area.angle
-			else:
-				# Если направление не задано, вычисляем от атаки к врагу
-				var parent = get_parent()
-				if parent and parent.global_position:
-					angle = area.global_position.direction_to(parent.global_position)
+			if not area.get("knockback_amount") == null:
+				knockback = area.knockback_amount
+			if not area.get("is_critical") == null:
+				is_critical = area.is_critical
 			
-			# Получаем силу отбрасывания
-			if area.get("knockback_amount") != null:
-				knockback_amount = area.knockback_amount
-			
-			emit_signal("hurt",damage, angle, knockback_amount)
+			emit_signal("hurt",damage, angle, knockback, is_critical)
 			if area.has_method("enemy_hit"):
 				area.enemy_hit(1)
 
